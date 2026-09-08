@@ -268,17 +268,27 @@ which openFPGALoader masks off. Same part.
 
 ### Getting to your files from the shell
 
-Windows drive letters appear as `/c/`, `/d/`, `/o/` and so on. So
-`O:\Projects\logic\design.jed` is `/o/Projects/logic/design.jed`. Forward
-slashes throughout, and quote any path containing spaces.
+xc3sprog is a native Windows program, so give it **Windows-style paths** —
+exactly what you get from Explorer's "Copy as path":
+`O:\Projects\MyBoard\logic\design.jed`. MSYS2's `/o/...` style does **not**
+work here — the colon in the filespec (`design.jed:v`) stops MSYS2 translating
+the path, and you get `Can't open datafile ...: No such file or directory`.
 
-Easiest approach: `cd` to the folder holding your `.jed` file, then use the
-bare filename. To run the xc3sprog you built from another folder, give its full
-path:
+Quote any path containing spaces (Explorer's "Copy as path" already adds the
+quotes).
+
+Easiest approach: `cd` to the folder holding your `.jed` file, then use the bare
+filename. For `cd` itself, MSYS2 paths work fine — it's a shell builtin:
 
 ```bash
-cd "/o/OneDrive/Amiga/_Projects/A4000DB ISA 1.0/logic"
-~/xc3sprog/build/xc3sprog.exe -c bbv2_2 -j -v
+cd "/o/Projects/MyBoard/logic"
+~/xc3sprog/build/xc3sprog.exe -c bbv2_2 -v -p 0 "design.jed:v"
+```
+
+Or stay put and give the full Windows path:
+
+```bash
+~/xc3sprog/build/xc3sprog.exe -c bbv2_2 -v -p 0 "O:\Projects\MyBoard\logic\design.jed:v"
 ```
 
 ---
@@ -317,7 +327,8 @@ The `-v` flag is required in all cases on this build — omitting it fails.
 ./xc3sprog.exe -c bbv2_2 -v -J 1000000 -p 0 "design.jed:v"
 ```
 
-Paths in the UCRT64 shell use `/o/path` or `o:/path`, not `O:\path`.
+Use Windows-style paths (`O:\Projects\design.jed`), not MSYS2 `/o/...` paths —
+see "Getting to your files from the shell" above.
 
 XC9500XL parts take **JEDEC** files, not bitstreams.
 
