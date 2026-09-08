@@ -1,7 +1,51 @@
-# Tigard JTAG Setup on Windows 11
+# JTAG Programming on Windows 11
 
-Programming and verifying Xilinx XC9500XL CPLDs (and Lattice ECP5) with a
-Tigard FT2232H adapter, from a clean Windows install.
+Programming and verifying Xilinx XC9500XL CPLDs (and Lattice ECP5) with an
+FTDI-based JTAG adapter, from a clean Windows install.
+
+Covers three adapters: **Tigard** (recommended), **CJMCU-2232HL**, and a
+single-channel **FT232H** board. The software setup is identical for all three;
+only wiring, driver binding, and cable names differ.
+
+---
+
+## Choosing an adapter
+
+All three are FTDI MPSSE devices and all three will program an XC9500XL. The
+differences matter more on a mixed-vintage bench than on a single project.
+
+### Tigard — worth the extra cost
+
+An open-hardware FT2232H adapter designed for exactly this kind of work.
+Documentation, schematics, and pinouts: **https://github.com/tigard-tools/tigard**
+
+- **Level shifting with selectable target voltage.** A switch picks 1.8V, 3.3V,
+  5V, or VTGT (referenced from the target's own VREF pin). The generic boards
+  are fixed 3.3V with unprotected inputs — a real hazard around 5V logic,
+  which includes a lot of retro hardware.
+- **Labelled protocol headers.** Separate, silkscreened headers for JTAG, SWD,
+  UART, SPI and I2C, with a mode switch routing channel A. No counting pins
+  from a `Dn` label and hoping.
+- **Programmed EEPROM.** Identifies itself as "Tigard V1.1" in Device Manager
+  and Zadig, instead of the generic "Dual RS232-HS" that every unbranded
+  FT2232H board reports. Matters as soon as you own more than one adapter.
+- **Series protection resistors** on the I/O lines.
+- **Second channel stays free** for a UART to the same target while JTAG is
+  connected.
+
+**Where to buy:**
+- https://1bitsquared.com/products/tigard
+- https://1bitsquared.de/en/products/tigard
+- https://www.crowdsupply.com/securinghw/tigard#products
+- https://hackerwarehouse.com/product/tigard/
+
+### When a generic board is fine
+
+If the targets are all 3.3V, the wiring is fixed, and only one adapter is ever
+plugged in, a CJMCU-2232HL does the same job for a fraction of the price. The
+FT232H board is cheaper still, at the cost of the second channel.
+
+Both are covered under **Adapter variants** below.
 
 ---
 
@@ -55,25 +99,52 @@ symptom as a wrong cable definition.
 
 ### MSYS2
 
-Install from https://www.msys2.org, then open the **UCRT64** shell (not MSYS,
-not MINGW64) and install packages:
+**1. Install MSYS2.** From an ordinary PowerShell or Command Prompt:
+
+```powershell
+winget install --id=MSYS2.MSYS2
+```
+
+Or download and run the installer from **https://www.msys2.org** and accept the
+defaults.
+
+**2. Open the right shell.** The install creates several Start menu entries.
+Open the one named **"MSYS2 UCRT64"** — the yellow icon. Not "MSYS2 MSYS", not
+"MSYS2 MINGW64". Everything in this guide assumes the UCRT64 shell.
+
+**3. Update the package database.** Answer `Y` to any prompts:
 
 ```bash
 pacman -Syu
+```
+
+If it tells you to close the terminal, close it, reopen **MSYS2 UCRT64**, and
+run `pacman -Syu` again.
+
+**4. Install everything needed:**
+
+```bash
 pacman -S --needed mingw-w64-ucrt-x86_64-toolchain \
                    mingw-w64-ucrt-x86_64-cmake \
                    mingw-w64-ucrt-x86_64-libftdi \
+                   mingw-w64-ucrt-x86_64-openFPGALoader \
                    make git
 ```
 
-### openFPGALoader
+Press Enter to accept the default (all packages) when asked which members of
+the toolchain group to install.
 
-Either install via pacman if available in UCRT64, or download a Windows build
-and put it on PATH.
+**5. Check openFPGALoader is installed:**
+
+```bash
+openFPGALoader --Version
+```
 
 ### Zadig
 
-Download from https://zadig.akeo.ie — no installation needed.
+Download from **https://zadig.akeo.ie**. It's a single .exe — no installation.
+Save it somewhere you can find again; you'll need it whenever you connect a new
+adapter.
 
 ---
 
@@ -129,22 +200,46 @@ PATH, and a version mismatch causes confusing open failures.
 
 ## Part 4 — Driver binding (Tigard)
 
-1. Plug in Tigard. Two COM ports appear.
-2. Run Zadig **as administrator**.
-3. **Options → List All Devices.**
-4. Select **Tigard V1.1 (Interface 1)** — Interface 1, not 0.
-5. Choose **WinUSB** and click Replace Driver.
+Windows installs FTDI's serial driver automatically, which gives you two COM
+ports. JTAG tools can't use that driver, so one interface has to be switched to
+WinUSB. This is what Zadig does.
 
-Interface 1's COM port disappears. Interface 0 keeps its COM port for UART use.
+1. Plug in Tigard. Two COM ports appear in Device Manager under
+   **Ports (COM & LPT)**.
+2. Run Zadig **as administrator** (right-click → Run as administrator).
+3. **Options → List All Devices.** Nothing useful appears until you do this.
+4. In the dropdown, select **Tigard V1.1 (Interface 1)**. Check the interface
+   number carefully — Interface 0 is the wrong one and will appear to work
+   right up until scans come back empty.
+5. In the driver box to the right of the green arrow, use the small up/down
+   arrows to select **WinUSB**.
+6. Click **Replace Driver**. It takes a few seconds.
 
-Device Manager should show the interface under WinUSB devices rather than
+Interface 1's COM port disappears. Interface 0 keeps its COM port and can still
+be used as a normal serial port.
+
+To confirm: in Device Manager, the interface should now appear under a
+**Universal Serial Bus devices** or **WinUSB devices** heading rather than
 Ports (COM & LPT).
+
+This is a one-time change per adapter, per PC. Windows remembers it across
+reboots and replugs.
+
+### Undoing it
+
+If you ever want the COM port back: Device Manager → right-click the device →
+**Uninstall device**, tick **"Attempt to remove the driver"**, then unplug and
+replug.
 
 ---
 
 ## Part 5 — Verify it works
 
-Run xc3sprog from the UCRT64 shell so it finds its DLLs.
+Run xc3sprog from the **MSYS2 UCRT64** shell so it finds its DLLs.
+openFPGALoader works from any shell once installed, but it's simplest to use
+the same window for both.
+
+Power the target board, connect the adapter, then:
 
 ```bash
 openFPGALoader --detect --cable tigard
@@ -170,6 +265,21 @@ Expected: `JTAG chainpos: 0 Device IDCODE = 0x59604093  Desc: XC9572XL`
 
 The IDCODE differs in the top nibble between tools — that's the die revision,
 which openFPGALoader masks off. Same part.
+
+### Getting to your files from the shell
+
+Windows drive letters appear as `/c/`, `/d/`, `/o/` and so on. So
+`O:\Projects\logic\design.jed` is `/o/Projects/logic/design.jed`. Forward
+slashes throughout, and quote any path containing spaces.
+
+Easiest approach: `cd` to the folder holding your `.jed` file, then use the
+bare filename. To run the xc3sprog you built from another folder, give its full
+path:
+
+```bash
+cd "/o/OneDrive/Amiga/_Projects/A4000DB ISA 1.0/logic"
+~/xc3sprog/build/xc3sprog.exe -c bbv2_2 -j -v
+```
 
 ---
 
@@ -217,7 +327,8 @@ XC9500XL parts take **JEDEC** files, not bitstreams.
 
 Parts 2 and 3 (MSYS2, openFPGALoader, building xc3sprog) are identical for all
 three adapters. Only the pin wiring, the Zadig interface, and the cable name
-change.
+change — so for a generic board, follow Part 4 exactly but pick the interface
+named in the table below instead of Interface 1.
 
 | | Tigard | CJMCU-2232HL | FT232H board |
 |---|---|---|---|
