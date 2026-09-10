@@ -3,9 +3,9 @@
 Programming and verifying Xilinx XC9500XL CPLDs (and Lattice ECP5) with an
 FTDI-based JTAG adapter, from a clean Windows install.
 
-Covers three adapters: **Tigard** (recommended), **CJMCU-2232HL**, and a
-single-channel **FT232H** board. The software setup is identical for all three;
-only wiring, driver binding, and cable names differ.
+Covers three adapters: **Tigard** (recommended), the dual-channel
+**CJMCU-2232HL**, and a single-channel **FT232H** board. The software setup is
+identical for all three; only wiring, driver binding, and cable names differ.
 
 ---
 
@@ -27,8 +27,9 @@ Documentation, schematics, and pinouts: **https://github.com/tigard-tools/tigard
   UART, SPI and I2C, with a mode switch routing channel A. No counting pins
   from a `Dn` label and hoping.
 - **Programmed EEPROM.** Identifies itself as "Tigard V1.1" in Device Manager
-  and Zadig, instead of the generic "Dual RS232-HS" that every unbranded
-  FT2232H board reports. Matters as soon as you own more than one adapter.
+  and Zadig, instead of the generic "Dual RS232-HS" or "Single RS232-HS" that
+  unbranded FTDI boards report. Matters as soon as you own more than one
+  adapter.
 - **Series protection resistors** on the I/O lines.
 - **Second channel stays free** for a UART to the same target while JTAG is
   connected.
@@ -42,8 +43,9 @@ Documentation, schematics, and pinouts: **https://github.com/tigard-tools/tigard
 ### When a generic board is fine
 
 If the targets are all 3.3V, the wiring is fixed, and only one adapter is ever
-plugged in, a CJMCU-2232HL does the same job for a fraction of the price. The
-FT232H board is cheaper still, at the cost of the second channel.
+plugged in, a dual-channel CJMCU-2232HL does the same job for a fraction of the
+price. The FT232H board is even cheaper, but loses the second channel, which is
+perfectly fine for most users.
 
 Both are covered under **Adapter variants** below.
 
@@ -389,14 +391,11 @@ xc3sprog's `-s <serial>` won't help, because there is no serial to match.
 - https://www.aliexpress.us/item/3256809348878557.html
 - https://www.amazon.com/MusRock-FT2232HL-Serial-Adapter-Development/dp/B0FXWND8RM
 
-### FT232H board (cheapest option, UNTESTED)
+### FT232H board (cheapest option)
 
 Single-channel FT232H module, USB-C, with an I2C-mode slide switch. Cheaper
 than the FT2232HL and adequate for JTAG, at the cost of losing the second
 channel (no spare UART, no logic-analyser use while JTAG is connected).
-
-**This variant has not been verified. The notes below are from the datasheet
-and board silkscreen. Confirm before relying on them.**
 
 Different USB PID (`0403:6014`), so the cable names differ:
 
@@ -406,7 +405,8 @@ openFPGALoader --detect --cable ft232
 ```
 
 Only one interface exists, so Zadig binds **Interface 0**, and unlike the
-two-channel boards, there is no second COM port left over.
+two-channel boards, there is no second COM port left over. These boards ship
+with a blank EEPROM and appear in Zadig as **"Single RS232-HS"**.
 
 Silkscreen uses `Dn` for the ADBUS pins:
 
@@ -420,12 +420,13 @@ Silkscreen uses `Dn` for the ADBUS pins:
 Plus **Gnd** to the target's ground.
 
 Set the **I2C Mode switch to off** for JTAG. In I2C mode the board ties D1 and
-D2 together, which will break JTAG.
+D2 together, which breaks JTAG. With the switch off, JTAG works normally.
 
-The reverse silkscreen claims *"3V logic, 5V safe"*. Treat that as meaning the
-inputs tolerate 5V, not that it can drive 5V logic. Outputs are still 3.3V.
-Verify against the actual FT232H datasheet before connecting it to anything 5V;
-"5V safe" on a cheap board silkscreen is not a guarantee.
+The reverse silkscreen claims *"3V logic, 5V safe"*. **This has not been
+tested.** Treat it as meaning the inputs tolerate 5V, not that the board can
+drive 5V logic. Outputs are still 3.3V. Check the FT232H datasheet before
+connecting it to anything 5V; "5V safe" on a cheap board silkscreen is not a
+guarantee. For 5V targets, use a Tigard with its level shifting instead.
 
 ---
 
